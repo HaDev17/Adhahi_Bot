@@ -52,19 +52,11 @@ def save_state(state):
 
 
 def get_data():
+    url = "https://adhahi.dz/api/v1/public/wilaya-quotas"
 
-    try:
-        response = requests.get(
-            API_URL,
-            headers=headers,
-            timeout=(5, 20)  # connect + read timeout
-        )
-        response.raise_for_status()
-        return response.json()
-
-    except requests.exceptions.RequestException as e:
-        print("Request error:", e)
-        return None
+    response = session.get(url, headers=headers, timeout=20)
+    response.raise_for_status()
+    return response.json()
 
 
 def extract_statuses(data):
