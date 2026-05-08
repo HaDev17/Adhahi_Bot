@@ -12,7 +12,14 @@ retries = Retry(
     status_forcelist=[500, 502, 503, 504]
 )
 
+headers = {
+    "User-Agent": "Mozilla/5.0",
+    "Accept": "application/json",
+    "Referer": "https://adhahi.dz/register"
+}
+
 session.mount("https://", HTTPAdapter(max_retries=retries))
+session.get("https://adhahi.dz/register", headers=headers, timeout=20)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
@@ -45,23 +52,19 @@ def save_state(state):
 
 
 def get_data():
-    try:
-        headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://adhahi.dz/register",
-        "Origin": "https://adhahi.dz"
-        }
 
-        response = session.get(API_URL, headers=headers, timeout=20)
+    try:
+        response = requests.get(
+            API_URL,
+            headers=headers,
+            timeout=(5, 20)  # connect + read timeout
+        )
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.ConnectTimeout:
-        print("Connect timeout. Skipping fetch in CI.")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")
-        return None
 
+    except requests.exceptions.RequestException as e:
+        print("Request error:", e)
+        return None
 
 
 def extract_statuses(data):
