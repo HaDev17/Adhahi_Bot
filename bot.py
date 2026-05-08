@@ -1,0 +1,86 @@
+import requests
+import json
+import os
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+
+API_URL = "https://adhahi.dz/api/v1/public/wilaya-quotas"
+
+STATE_FILE = "state.json"
+
+TARGET_WILAYAS = ["المسيلة", "البويرة"]
+def send_message(text):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+    requests.post(url, data={
+        "chat_id": CHAT_ID,
+        "text": text
+    })
+
+
+def load_state():
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+
+def save_state(state):
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False)
+
+
+def get_data():
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://adhahi.dz/register",
+        "Origin": "https://adhahi.dz"
+    }
+
+    response = requests.get(API_URL, headers=headers)
+    return response.json()
+
+
+def extract_statuses(data):
+
+    results = {}
+
+    for item in data:
+
+        wilaya_name = item.get("wilayaNameAr")
+
+        if wilaya_name in TARGET_WILAYAS:
+            results[wilaya_name] = item
+
+    return results
+
+def main():
+
+    old_state = load_state()
+
+    data = get_data()
+
+    current_state = extract_statuses(data)
+
+    print(current_state)
+
+    for wilaya, status in current_state.items():
+
+        old_status = old_state.get(wilaya)
+
+        if old_status != status:
+
+            message = (
+                f"📢 تحديث جديد\n\n"
+                f"🏙️ الولاية: {wilaya}\n"
+                f"📦 الحالة: {status['available']}"
+            )
+            send_message(message)
+
+    save_state(current_state)
+
+
+if __name__ == "__main__":
+    main()
