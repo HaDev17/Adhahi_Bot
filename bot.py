@@ -45,14 +45,23 @@ def save_state(state):
 
 
 def get_data():
-    headers = {
+    try:
+        headers = {
         "User-Agent": "Mozilla/5.0",
         "Referer": "https://adhahi.dz/register",
         "Origin": "https://adhahi.dz"
-    }
+        }
 
-    response = session.get(API_URL, headers=headers, timeout=20)
-    return response.json()
+        response = session.get(API_URL, headers=headers, timeout=20)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.ConnectTimeout:
+        print("Connect timeout. Skipping fetch in CI.")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None
+
 
 
 def extract_statuses(data):
