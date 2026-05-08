@@ -82,6 +82,9 @@ def main():
     old_state = load_state()
 
     data = get_data()
+    if data is None:
+        print("No data fetched. Exiting.")
+        return
 
     current_state = extract_statuses(data)
 
