@@ -1,43 +1,43 @@
 import requests
 import json
 import os
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-session = requests.Session()
-
-retries = Retry(
-    total=5,
-    backoff_factor=1,
-    status_forcelist=[500, 502, 503, 504]
-)
-
-headers = {
-    "User-Agent": "Mozilla/5.0",
-    "Accept": "application/json",
-    "Referer": "https://adhahi.dz/register"
-}
-
-session.mount("https://", HTTPAdapter(max_retries=retries))
-session.get("https://adhahi.dz/register", headers=headers, timeout=20)
+API_URL = "https://adhahi.dz/api/v1/public/wilaya-quotas"
+STATE_FILE = "state.json"
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-API_URL = "https://adhahi.dz/api/v1/public/wilaya-quotas"
+# ===== PROXY =====
+PROXY_USER = os.getenv("PROXY_USER")
+PROXY_PASS = os.getenv("PROXY_PASS")
+PROXY_IP = os.getenv("PROXY_IP")
+PROXY_PORT = os.getenv("PROXY_PORT")
 
-STATE_FILE = "state.json"
+proxy_url = None
+proxies = None
 
-TARGET_WILAYAS = ["المسيلة", "البويرة"]
+if all([PROXY_USER, PROXY_PASS, PROXY_IP, PROXY_PORT]):
+    proxy_url = f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_IP}:{PROXY_PORT}"
+    proxies = {
+        "http": proxy_url,
+        "https": proxy_url
+    }
+
+
+session = requests.Session()
+
+
+# ===== TELEGRAM =====
 def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
     requests.post(url, data={
         "chat_id": CHAT_ID,
         "text": text
     })
 
 
+# ===== STATE =====
 def load_state():
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
@@ -51,52 +51,55 @@ def save_state(state):
         json.dump(state, f, ensure_ascii=False)
 
 
+# ===== FETCH DATA =====
 def get_data():
-    url = "https://adhahi.dz/api/v1/public/wilaya-quotas"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://adhahi.dz/register",
+        "Origin": "https://adhahi.dz",
+        "Accept": "application/json"
+    }
 
-    response = session.get(url, headers=headers, timeout=20)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = session.get(
+            API_URL,
+            headers=headers,
+            proxies=proxies,
+            timeout=20
+        )
+        response.raise_for_status()
+        return response.json()
+
+    except Exception as e:
+        print("Fetch error:", e)
+        return None
 
 
+# ===== PARSE =====
 def extract_statuses(data):
+    return {
+        0: data[27],
+        1: data[9]
+    }
 
-    results = {}
 
-    for item in data:
-
-        wilaya_name = item.get("wilayaNameAr")
-
-        if wilaya_name in TARGET_WILAYAS:
-            results[wilaya_name] = item
-
-    return results
-
+# ===== MAIN =====
 def main():
-
     old_state = load_state()
 
     data = get_data()
-    if not data:   # 👈 أهم سطر
-        print("No data fetched. Exiting safely.")
+
+    if not data:
+        print("No data fetched.")
         return
 
     current_state = extract_statuses(data)
 
-    print(current_state)
-
     for wilaya, status in current_state.items():
-
         old_status = old_state.get(wilaya)
 
         if old_status != status:
-
-            message = (
-                f"📢 تحديث جديد\n\n"
-                f"🏙️ الولاية: {wilaya}\n"
-                f"📦 الحالة: {status['available']}"
-            )
-            send_message(message)
+            send_message(f"📢 Update in {wilaya}\n\n{status}")
 
     save_state(current_state)
 
