@@ -1,6 +1,18 @@
 import requests
 import json
 import os
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+session = requests.Session()
+
+retries = Retry(
+    total=5,
+    backoff_factor=1,
+    status_forcelist=[500, 502, 503, 504]
+)
+
+session.mount("https://", HTTPAdapter(max_retries=retries))
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
@@ -39,7 +51,7 @@ def get_data():
         "Origin": "https://adhahi.dz"
     }
 
-    response = requests.get(API_URL, headers=headers)
+    response = session.get(API_URL, headers=headers, timeout=20)
     return response.json()
 
 
